@@ -3,6 +3,7 @@
 
 import logging
 import os.path
+import signal
 import sys
 from abc import ABC
 
@@ -10,6 +11,8 @@ import tornado.escape
 import tornado.httpserver
 import tornado.ioloop
 import tornado.options
+from tornado.options import options
+from tornado.log import enable_pretty_logging
 from tornado import gen
 
 # 在项目运行时，临时将项目路径添加到环境变量
@@ -19,8 +22,31 @@ sys.path.append(cpath)
 log_path = os.path.join(cpath_current, 'log')
 if not os.path.exists(log_path):
     os.makedirs(log_path)
-logging.basicConfig(format='%(asctime)s %(message)s', filename=os.path.join(log_path, 'stock_web.log'))
-logging.getLogger().setLevel(logging.ERROR)
+
+# 配置日志记录器
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)  # 设置全局日志级别
+
+# 控制台处理器
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)  # 控制台日志级别
+console_formatter = logging.Formatter(
+    '%(asctime)s [%(levelname)s] (%(pathname)s:%(lineno)d - %(funcName)s) - %(message)s'
+)  # 使用绝对路径，支持点击跳转
+console_handler.setFormatter(console_formatter)
+
+# 文件处理器
+file_handler = logging.FileHandler(os.path.join(log_path, 'stock_web.log'), encoding='utf-8')
+file_handler.setLevel(logging.INFO)  # 文件日志级别
+file_formatter = logging.Formatter(
+    '%(asctime)s [%(levelname)s] (%(filename)s:%(lineno)d - %(funcName)s) - %(message)s'
+)  # 文件中使用文件名，便于阅读
+file_handler.setFormatter(file_formatter)
+
+# 添加处理器到日志记录器
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
+
 import instock.lib.torndb as torndb
 import instock.lib.database as mdb
 import instock.lib.version as version
@@ -67,19 +93,33 @@ class HomeHandler(webBase.BaseHandler, ABC):
                     stockVersion=version.__version__,
                     leftMenu=webBase.GetLeftMenu(self.request.uri))
 
+def shutdown():
+    print("Shutting down Tornado...")
+    tornado.ioloop.IOLoop.current().stop()
 
 def main():
     # tornado.options.parse_command_line()
-    tornado.options.options.logging = None
+    # tornado.options.options.logging = None
 
     http_server = tornado.httpserver.HTTPServer(Application())
     port = 9988
     http_server.listen(port)
 
-    print(f"服务已启动，web地址 : http://localhost:{port}/")
-    logging.error(f"服务已启动，web地址 : http://localhost:{port}/")
+    # Tornado 应用中捕捉信号，并在收到退出信号时停止事件循环：不然调试的时候不会退出
+    signal.signal(signal.SIGINT, lambda sig, frame: shutdown())  # 捕获 Ctrl+C 信号
+    signal.signal(signal.SIGTERM, lambda sig, frame: shutdown())  # 捕获终止信号
 
-    tornado.ioloop.IOLoop.current().start()
+    # enable_pretty_logging()
+    # print("Logging level:", options.logging)
+    print(f"服务已启动，web地址 : http://localhost:{port}/")
+    logging.info(f"服务已启动，web地址 : http://localhost:{port}/")
+    try:
+        tornado.ioloop.IOLoop.current().start()
+    except KeyboardInterrupt:
+        shutdown()
+
+
+
 
 
 if __name__ == "__main__":

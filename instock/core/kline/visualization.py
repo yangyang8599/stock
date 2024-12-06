@@ -70,6 +70,16 @@ def get_plot_kline(code, stock, date, stock_name):
         for name, color in zip(sam_labels, Spectral11):
             p_kline.line(x='index', y=name, source=source, legend_label=tbs.get_field_cn(name, tbs.STOCK_STATS_DATA),
                          color=color, line_width=1.5, alpha=0.8)
+
+        # liu添加横线
+        mean_close = data['close'].mean()# 计算收盘价均值
+        horizontal_line = Span(location=mean_close,  # 横线的位置 (Y轴坐标)
+                               dimension='width',  # 横线的方向为水平
+                               line_color='red',  # 横线颜色
+                               line_width=2,  # 横线宽度
+                               line_dash='dashed')  # 虚线样式
+        p_kline.add_layout(horizontal_line)
+
         p_kline.legend.location = "top_left"
         p_kline.legend.click_policy = "hide"
 
@@ -83,7 +93,7 @@ def get_plot_kline(code, stock, date, stock_name):
         p_kline.add_tools(hover, crosshair)
 
         # 形态信息
-        pattern_is_show = True  # 形态缺省是否显示
+        pattern_is_show = False  # 形态缺省是否显示
         checkboxes_args = {}
         checkboxes_code = """let acts = cb_obj.active;"""
         pattern_labels = []
