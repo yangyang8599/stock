@@ -16,16 +16,21 @@ import instock.core.tablestructure as tbs
 import instock.core.indicator.calculate_indicator as idr
 import instock.core.pattern.pattern_recognitions as kpr
 import instock.core.kline.indicator_web_dic as iwd
+import time
 
 __author__ = 'myh '
 __date__ = '2023/4/6 '
 
 
 def get_plot_kline(code, stock, date, stock_name):
+    start_time = time.time()
+
     plot_list = []
     threshold = 360
     try:
+        t1 = time.time()
         data = idr.get_indicators(stock, date, threshold=threshold)
+        logging.info(f"Step 1: idr.get_indicators took {time.time() - t1:.2f} seconds")
         if data is None:
             return None
 
@@ -43,6 +48,7 @@ def get_plot_kline(code, stock, date, stock_name):
         dec = data['open'] > data['close']
         inc_source = ColumnDataSource(data.loc[inc])
         dec_source = ColumnDataSource(data.loc[dec])
+        logging.info(f"Step 2 took {time.time() - t1:.2f} seconds")
 
         # 工具条
         tools = pan, box_select, box_zoom, wheel_zoom, zoom_in, zoom_out, undo, redo, reset, save = \
@@ -57,6 +63,7 @@ def get_plot_kline(code, stock, date, stock_name):
                     ('金额', '@amount{¥0}'), ('换手', '@turnover%')]
 
         hover = HoverTool(tooltips=tooltips, description="悬停")
+        logging.info(f"Step 3 took {time.time() - t1:.2f} seconds")
 
         # 十字瞄准线
         crosshair = CrosshairTool(overlay=[Span(dimension="width", line_dash="dashed", line_width=2),
@@ -82,6 +89,7 @@ def get_plot_kline(code, stock, date, stock_name):
 
         p_kline.legend.location = "top_left"
         p_kline.legend.click_policy = "hide"
+        logging.info(f"Step 4 took {time.time() - t1:.2f} seconds")
 
         # 股价柱
         p_kline.segment(x0='index', y0='high', x1='index', y1='low', color='red', source=inc_source)
@@ -138,6 +146,7 @@ def get_plot_kline(code, stock, date, stock_name):
                 i += 1
         p_kline.xaxis.visible = False
         p_kline.min_border_bottom = 0
+        logging.info(f"Step 5 took {time.time() - t1:.2f} seconds")
 
         # 交易量柱
         p_volume = figure(width=p_kline.width, height=120, x_range=p_kline.x_range,
@@ -169,6 +178,7 @@ def get_plot_kline(code, stock, date, stock_name):
                                                         code="pcs.active = Array.from(pls, (x, i) => i);"))
         select_none.js_on_event("button_click", CustomJS(args={'pcs': pattern_checkboxes},
                                                          code="pcs.active = [];"))
+        logging.info(f"Step 6 took {time.time() - t1:.2f} seconds")
 
         # 指标
         tabs = []
@@ -198,6 +208,7 @@ def get_plot_kline(code, stock, date, stock_name):
         tabs_indicators = Tabs(tabs=tabs, tabs_location='below', width=p_kline.width, stylesheets=[
             {'.bk-tab': Styles(padding='1px 1.4px', font_size='xx-small'),
              '.bk-tab.bk-active': Styles(background_color='yellow', color='red')}])
+        logging.info(f"Step 7 took {time.time() - t1:.2f} seconds")
 
         # 关注
         if code.startswith(('1', '5')):
@@ -208,6 +219,7 @@ def get_plot_kline(code, stock, date, stock_name):
             _sql = f"SELECT EXISTS(SELECT 1 FROM `{table_name}` WHERE `code` = '{code}')"
             try:
                 rc = mdb.executeSqlCount(_sql)
+                logging.info(f"Step 7.1 took {time.time() - t1:.2f} seconds")
             except Exception as e:
                 rc = 0
             if rc == 0:
@@ -237,6 +249,7 @@ def get_plot_kline(code, stock, date, stock_name):
         div_dfcf_pr = Div(
             text=f"""<a href="https://www.ljjyy.com/archives/2023/04/100718.html" target="_blank">形态</a>""",
             width=40)
+        logging.info(f"Step 7.2 took {time.time() - t1:.2f} seconds")
 
         # 组合图
         layouts = layout(row(
@@ -245,7 +258,9 @@ def get_plot_kline(code, stock, date, stock_name):
                     align='end'),
                 p_kline,
                 p_volume, tabs_indicators), ck))
+        logging.info(f"Step 7.3 took {time.time() - t1:.2f} seconds")
         script, div = components(layouts)
+        logging.info(f"Step 8 took {time.time() - t1:.2f} seconds")
 
         return {"script": script, "div": div}
     except Exception as e:
